@@ -1,0 +1,281 @@
+/*_________________________________________________________________ 
+Noobys Custom data editor for Whip's Optical Missile Guidance Script 
+(linked below) This script uses elements from that code to function. 
+ 
+https://steamcommunity.com/sharedfiles/filedetails/?id=546494746 
+ 
+This program is for updating the missile tag and custom data of large numbers of PMWs on the same grid 
+quickly and easily. You can easily change the detach time, Rotation RPM and PID settings for all missiles  
+on grid instantly. It also renames the missile tag with the program blocks guidance script tag. 
+ 
+Load this script into an empty program block. Edit the program blocks custom data to apply this custom data  
+to all missiles program block in the group name "OpticalGuidanceDataUpdate". 
+ 
+The missile tag put into the optical guidance scripts program data has to be at the start of the guidance 
+programs name EG  
+ 
+[RD-19] Programme Guidance 
+ 
+will result in 
+ 
+missileTag = [RD-19] 
+ 
+in the custom data of the optical guidance script 19. 
+___________________________________________________________________ 
+*/ 
+ 
+// the group name of the guidance script program blocks whose custom data needs updating 
+string GroupName = "OpticalGuidanceDataUpdate"; 
+ 
+//this program DOES NOT LIKE funny characters like "!" 
+ 
+ 
+// Whiplash variable section 
+ 
+/*_________________________________________________________________ 
+//////// DO NOT CHANGE VARIABLES HERE! ////////    
+//////// USE THE CUSTOM DATA OF THIS PROGRAM, THEN RECOMPILE! ////////  
+___________________________________________________________________ 
+*/ 
+ 
+//---Missile Name Tags     
+string missileTag = "Missile 1"; 
+string detachThrustTag = "Detach"; //(Optional) tag on detach thrust   
+ 
+//---Reference Name Tags   
+string shooterReferenceName = "Shooter Reference"; //name of the remote on the shooter vessel  
+ 
+//---Runtime variables   
+double updatesPerSecond = 20; // self explanatory :P   
+ 
+//---Missile Detach Parameters  
+double disconnectDelay = 1; //time (in seconds) that the missile will delay disconnection from firing ship  
+ 
+double guidanceDelay = 1; // time (in seconds) that the missile will delay guidance activation by   
+ 
+double detachDuration = 0; 
+// time that the missile will execute detach. During the detach function, the missile   
+// will use its detach thrusters and any artificial mass it detects to detach from the ship.   
+// Setting this to ZERO will skip this feature and move on to the main ignition delay stage.   
+ 
+double mainIgnitionDelay = 0; 
+// time (in seconds) that the missile will delay main engine activation AFTER the   
+// detach function has finished. During this time, the missile will drift without   
+// any thrusters firing. Set this to ZERO if you do not want this :)   
+ 
+//---Drift Compensation Parameters   
+bool driftCompensation = true; 
+// this determines if the missile will negate unwanted drift. This allows you to make a    
+// missile using just forward thrust!   
+ 
+//---Spiral Trajectory Parameters  
+bool enableSpiralTrajectory = false; //determines if missiles will spiral to avoid turret fire   
+double spiralDegrees = 5; // angular deviation of the spiral pattern    
+double timeMaxSpiral = 3; // time it takes the missile to complete a full spiral cycle   
+ 
+//---Rotation speed control system   
+double proportionalConstant = 50; // proportional gain of gyroscopes   
+double derivativeConstant = 20; // derivative gain of gyroscopes   
+ 
+//---Missile impact point offsets  
+double offsetUp = 0; // (in meters) Positive numbers offset up, negative offset down  
+double offsetLeft = 0; // (in meters) Positive numbers offset left, negative offset right  
+ 
+//---Missile spin parameters  
+double missileSpinRPM = 0; //this specifies how fast the missile will spin when flying(only in space)  
+ 
+//---Missile vector lock  
+bool lockVectorOnLaunch = false; //if the code will lock on the the shooter's vector on launch and not actively track  
+ 
+ 
+public Program() 
+{ 
+    BuildConfig(Me); 
+} 
+// whiplash variable section end 
+ 
+// Noobys Code Start 
+ 
+public void Main(string argument, UpdateType updateSource) 
+{ 
+ 
+ 
+ 
+ 
+string MainProgramCustomData = Me.CustomData; 
+var group = GridTerminalSystem.GetBlockGroupWithName(GroupName); 
+if (group != null) 
+{ 
+    var groupBlocks = new List<IMyTerminalBlock>(); 
+    group.GetBlocks(groupBlocks); 
+    UpdateConfig(Me, true); 
+ 
+    foreach (var block in groupBlocks) 
+    { 
+		var input = block.CustomName; 
+		var splitted = input.Split(new[] { ' ' }, 2); 
+ 
+            //string DataToWrite = "MissileTag = " + splitted[0] + "\n" + MainProgramCustomData; 
+            //block.CustomData = DataToWrite; 
+            block.CustomData = " "; 
+            missileTag = splitted[0]; 
+ 
+            BuildConfig(block); 
+            Echo(splitted[0]); 
+        }	 
+} 
+} 
+ 
+// Nooby Code End 
+ 
+// WHIPLASH 141 CODE TAKEN STRAING FROM OPTICAL GUIDANCE SCRIPT WITH ZERO CHANGES 
+ 
+#region VARIABLE CONFIG  
+Dictionary<string, string> configDict = new Dictionary<string, string>(); 
+ 
+void BuildConfig(IMyTerminalBlock block) 
+{ 
+    configDict.Clear(); 
+    configDict.Add("missileTag", missileTag.ToString()); 
+    configDict.Add("detachThrustTag", detachThrustTag.ToString()); 
+    configDict.Add("shooterReferenceName", shooterReferenceName.ToString()); 
+    configDict.Add("updatesPerSecond", updatesPerSecond.ToString()); 
+    configDict.Add("disconnectDelay", disconnectDelay.ToString()); 
+    configDict.Add("guidanceDelay", guidanceDelay.ToString()); 
+    configDict.Add("detachDuration", detachDuration.ToString()); 
+    configDict.Add("mainIgnitionDelay", mainIgnitionDelay.ToString()); 
+    configDict.Add("driftCompensation", driftCompensation.ToString()); 
+    configDict.Add("enableSpiralTrajectory", enableSpiralTrajectory.ToString()); 
+    configDict.Add("spiralDegrees", spiralDegrees.ToString()); 
+    configDict.Add("timeMaxSpiral", timeMaxSpiral.ToString()); 
+    configDict.Add("proportionalConstant", proportionalConstant.ToString()); 
+    configDict.Add("derivativeConstant", derivativeConstant.ToString()); 
+    configDict.Add("offsetUp", offsetUp.ToString()); 
+    configDict.Add("offsetLeft", offsetLeft.ToString()); 
+    configDict.Add("missileSpinRPM", missileSpinRPM.ToString()); 
+    configDict.Add("lockVectorOnLaunch", lockVectorOnLaunch.ToString()); 
+ 
+ 
+    UpdateConfig(block, true); 
+} 
+ 
+void UpdateConfig(IMyTerminalBlock block, bool isBuilding = false) 
+{ 
+    string customData = block.CustomData; 
+    var lines = customData.Split('\n'); 
+ 
+    foreach (var thisLine in lines) 
+    { 
+        var words = thisLine.Split('='); 
+        if (words.Length == 2) 
+        { 
+            var variableName = words[0].Trim(); 
+            var variableValue = words[1].Trim(); 
+            string dictValue; 
+            if (configDict.TryGetValue(variableName, out dictValue)) 
+            { 
+                configDict[variableName] = variableValue; 
+            } 
+        } 
+    } 
+ 
+    GetVariableFromConfig("missileTag", ref missileTag); 
+    GetVariableFromConfig("detachThrustTag", ref detachThrustTag); 
+    GetVariableFromConfig("shooterReferenceName", ref shooterReferenceName); 
+    GetVariableFromConfig("updatesPerSecond", ref updatesPerSecond); 
+    GetVariableFromConfig("disconnectDelay", ref disconnectDelay); 
+    GetVariableFromConfig("guidanceDelay", ref guidanceDelay); 
+    GetVariableFromConfig("detachDuration", ref detachDuration); 
+    GetVariableFromConfig("mainIgnitionDelay", ref mainIgnitionDelay); 
+    GetVariableFromConfig("driftCompensation", ref driftCompensation); 
+    GetVariableFromConfig("enableSpiralTrajectory", ref enableSpiralTrajectory); 
+    GetVariableFromConfig("spiralDegrees", ref spiralDegrees); 
+    GetVariableFromConfig("timeMaxSpiral", ref timeMaxSpiral); 
+    GetVariableFromConfig("proportionalConstant", ref proportionalConstant); 
+    GetVariableFromConfig("derivativeConstant", ref derivativeConstant); 
+    GetVariableFromConfig("offsetUp", ref offsetUp); 
+    GetVariableFromConfig("offsetLeft", ref offsetLeft); 
+    GetVariableFromConfig("missileSpinRPM", ref missileSpinRPM); 
+    GetVariableFromConfig("lockVectorOnLaunch", ref lockVectorOnLaunch); 
+ 
+    WriteConfig(block); 
+ 
+    if (isBuilding) 
+        Echo("Config Loaded"); 
+    else 
+        Echo("Config Updated"); 
+} 
+ 
+StringBuilder configSB = new StringBuilder(); 
+void WriteConfig(IMyTerminalBlock block) 
+{ 
+    configSB.Clear(); 
+    foreach (var keyValue in configDict) 
+    { 
+        configSB.AppendLine($"{keyValue.Key} = {keyValue.Value}"); 
+    } 
+ 
+    block.CustomData = configSB.ToString(); 
+} 
+ 
+void GetVariableFromConfig(string name, ref bool variableToUpdate) 
+{ 
+    string valueStr; 
+    if (configDict.TryGetValue(name, out valueStr)) 
+    { 
+        bool thisValue; 
+        if (bool.TryParse(valueStr, out thisValue)) 
+        { 
+            variableToUpdate = thisValue; 
+        } 
+    } 
+} 
+ 
+void GetVariableFromConfig(string name, ref int variableToUpdate) 
+{ 
+    string valueStr; 
+    if (configDict.TryGetValue(name, out valueStr)) 
+    { 
+        int thisValue; 
+        if (int.TryParse(valueStr, out thisValue)) 
+        { 
+            variableToUpdate = thisValue; 
+        } 
+    } 
+} 
+ 
+void GetVariableFromConfig(string name, ref float variableToUpdate) 
+{ 
+    string valueStr; 
+    if (configDict.TryGetValue(name, out valueStr)) 
+    { 
+        float thisValue; 
+        if (float.TryParse(valueStr, out thisValue)) 
+        { 
+            variableToUpdate = thisValue; 
+        } 
+    } 
+} 
+ 
+void GetVariableFromConfig(string name, ref double variableToUpdate) 
+{ 
+    string valueStr; 
+    if (configDict.TryGetValue(name, out valueStr)) 
+    { 
+        double thisValue; 
+        if (double.TryParse(valueStr, out thisValue)) 
+        { 
+            variableToUpdate = thisValue; 
+        } 
+    } 
+} 
+ 
+void GetVariableFromConfig(string name, ref string variableToUpdate) 
+{ 
+    string valueStr; 
+    if (configDict.TryGetValue(name, out valueStr)) 
+    { 
+        variableToUpdate = valueStr; 
+    } 
+} 
+#endregion
